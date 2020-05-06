@@ -12,20 +12,20 @@ var (
 // AlertService .
 type AlertService service
 
-// Fetch retrieves alerts using conditions.
-func (s *AlertService) Fetch(ctx context.Context) (*Response, *AlertResponse, error) {
+// List retrieves alerts using conditions.
+func (s *AlertService) List(ctx context.Context) (*Response, *AlertListResponse, error) {
 	req, err := s.client.newRequest("GET", fetchEndpoint, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	var alert *AlertResponse
+	var alert *AlertListResponse
 	resp, err := s.client.do(ctx, req, &alert)
 	return resp, alert, err
 }
 
-// AlertResponse represents a JSON Object returned by
+// AlertListResponse represents a JSON Object returned by
 // the List Alerts endpoint.
-type AlertResponse struct {
+type AlertListResponse struct {
 	ODataContext string `json:"@odata.context"`
 	Value        []Alert
 }

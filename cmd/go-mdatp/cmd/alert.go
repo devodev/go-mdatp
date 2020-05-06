@@ -9,26 +9,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type fetchConfig struct {
+var (
+	config configAlert
+)
+
+type configAlert struct {
 	ConfigFile string
 }
 
 // setupCmd sets flags on the provided cmd and resolve env variables using the provided Config.
-func fetchSetupCmd(cmd *cobra.Command, c *fetchConfig) *cobra.Command {
+func setupCmdAlert(cmd *cobra.Command, c *configAlert) *cobra.Command {
 	envconfig.Process("", c)
-	cmd.Flags().SortFlags = false
-	cmd.Flags().StringVarP(&c.ConfigFile, "config", "c", c.ConfigFile, "config file (default is $CWD/.go-mdatp.yaml)")
+	cmd.PersistentFlags().SortFlags = false
+	cmd.PersistentFlags().StringVarP(&c.ConfigFile, "config", "c", c.ConfigFile, "config file (default is $CWD/.go-mdatp.yaml)")
 	return cmd
 }
 
-func newCommandFetch() *cobra.Command {
-	var cmdConfig fetchConfig
+func newCommandAlert() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "fetch",
-		Short: "Fetch alerts from the Microsoft Defender ATP REST API.",
+		Use:   "alert",
+		Short: "Alert resource type commands.",
+	}
+	cmd.AddCommand(
+		newCommandAlertList(),
+	)
+	return setupCmdAlert(cmd, &config)
+}
+
+func newCommandAlertList() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List alerts.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := initConfig(cmdConfig.ConfigFile)
+			config, err := initConfig(config.ConfigFile)
 			if err != nil {
 				return err
 			}
@@ -44,7 +58,7 @@ func newCommandFetch() *cobra.Command {
 				return err
 			}
 
-			resp, alert, err := client.Alert.Fetch(context.Background())
+			resp, alert, err := client.Alert.List(context.Background())
 			if err != nil {
 				return err
 			}
@@ -68,5 +82,5 @@ func newCommandFetch() *cobra.Command {
 			return nil
 		},
 	}
-	return fetchSetupCmd(cmd, &cmdConfig)
+	return cmd
 }

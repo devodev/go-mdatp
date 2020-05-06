@@ -51,6 +51,8 @@ type Client struct {
 	// https://github.com/google/go-github/blob/d913de9ce1e8ed5550283b448b37b721b61cc3b3/github/github.go#L159
 	// Reuse a single struct instead of allocating one for each service on the heap.
 	common service
+
+	Alert *AlertService
 }
 
 // ClientOption provides a way to confgigure the client.
@@ -115,6 +117,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		}
 	}
 	c.common.client = c
+	c.Alert = (*AlertService)(&c.common)
 	return c, nil
 }
 

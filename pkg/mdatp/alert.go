@@ -74,7 +74,7 @@ func (p *AlertRequestParams) Values() (url.Values, error) {
 }
 
 // Fetch retrieves alerts using conditions.
-func (s *AlertService) Fetch(ctx context.Context, p *AlertRequestParams) (*Response, []Alert, error) {
+func (s *AlertService) Fetch(ctx context.Context, p *AlertRequestParams) (*Response, *AlertResponse, error) {
 	values, err := p.Values()
 	if err != nil {
 		return nil, nil, err
@@ -83,59 +83,46 @@ func (s *AlertService) Fetch(ctx context.Context, p *AlertRequestParams) (*Respo
 	if err != nil {
 		return nil, nil, err
 	}
-	var alerts []Alert
-	resp, err := s.client.do(ctx, req, &alerts)
-	return resp, alerts, err
+	var alert *AlertResponse
+	resp, err := s.client.do(ctx, req, &alert)
+	return resp, alert, err
+}
+
+// AlertResponse represents a JSON Object returned by
+// the List Alerts endpoint.
+type AlertResponse struct {
+	ODataContext string `json:"@odata.context"`
+	Value        []Alert
 }
 
 // Alert represents a Microsoft Defender ATP Alert type.
 type Alert struct {
-	Actor                     string `json:"Actor"`
-	AlertID                   string `json:"AlertId"`
-	AlertPart                 string `json:"AlertPart"`
-	AlertTime                 string `json:"AlertTime"`
-	AlertTitle                string `json:"AlertTitle"`
-	Category                  string `json:"Category"`
-	CloudCreatedMachineTags   string `json:"CloudCreatedMachineTags"`
-	CommandLine               string `json:"CommandLine"`
-	ComputerDNSName           string `json:"ComputerDnsName"`
-	CreatorIocName            string `json:"CreatorIocName"`
-	CreatorIocValue           string `json:"CreatorIocValue"`
-	Description               string `json:"Description"`
-	DeviceCreatedMachineTags  string `json:"DeviceCreatedMachineTags"`
-	DeviceID                  string `json:"DeviceID"`
-	ExternalID                string `json:"ExternalId"`
-	FileHash                  string `json:"FileHash"`
-	FileName                  string `json:"FileName"`
-	FilePath                  string `json:"FilePath"`
-	FullID                    string `json:"FullId"`
-	IncidentLinkToWDATP       string `json:"IncidentLinkToWDATP"`
-	InternalIPv4List          string `json:"InternalIPv4List"`
-	InternalIPv6List          string `json:"InternalIPv6List"`
-	IoaDefinitionID           string `json:"IoaDefinitionId"`
-	IocName                   string `json:"IocName"`
-	IocUniqueID               string `json:"IocUniqueId"`
-	IocValue                  string `json:"IocValue"`
-	IPAddress                 string `json:"IpAddress"`
-	LastProcessedTimeUtc      string `json:"LastProcessedTimeUtc"`
-	LinkToWDATP               string `json:"LinkToWDATP"`
-	LogOnUsers                string `json:"LogOnUsers"`
-	MachineDomain             string `json:"MachineDomain"`
-	MachineGroup              string `json:"MachineGroup"`
-	MachineName               string `json:"MachineName"`
-	Md5                       string `json:"Md5"`
-	RemediationAction         string `json:"RemediationAction"`
-	RemediationIsSuccess      string `json:"RemediationIsSuccess"`
-	ReportID                  string `json:"ReportID"`
-	Severity                  string `json:"Severity"`
-	Sha1                      string `json:"Sha1"`
-	Sha256                    string `json:"Sha256"`
-	Source                    string `json:"Source"`
-	ThreatCategory            string `json:"ThreatCategory"`
-	ThreatFamily              string `json:"ThreatFamily"`
-	ThreatName                string `json:"ThreatName"`
-	URL                       string `json:"Url"`
-	UserDomain                string `json:"UserDomain"`
-	UserName                  string `json:"UserName"`
-	WasExecutingWhileDetected string `json:"WasExecutingWhileDetected"`
+	ID                 *string        `json:"id"`
+	Title              *string        `json:"title"`
+	Description        *string        `json:"description"`
+	AlertCreationTime  *string        `json:"alertCreationTime"`
+	LastEventTime      *string        `json:"lastEventTime"`
+	FirstEventTime     *string        `json:"firstEventTime"`
+	LastUpdateTime     *string        `json:"lastUpdateTime"`
+	ResolvedTime       *string        `json:"resolvedTime"`
+	IncidentID         *int           `json:"incidentId"`
+	InvestigationID    *int           `json:"investigationId"`
+	InvestigationState *string        `json:"investigationState"`
+	AssignedTo         *string        `json:"assignedTo"`
+	Severity           *string        `json:"severity"`
+	Status             *string        `json:"status"`
+	Classification     *string        `json:"classification"`
+	Determination      *string        `json:"determination"`
+	Category           *string        `json:"category"`
+	DetectionSource    *string        `json:"detectionSource"`
+	ThreatFamilyName   *string        `json:"threatFamilyName"`
+	MachineID          *string        `json:"machineId"`
+	Comments           []AlertComment `json:"comments"`
+}
+
+// AlertComment is an object contained in Alert.
+type AlertComment struct {
+	Comment     *string `json:"comment"`
+	CreatedBy   *string `json:"createdBy"`
+	CreatedTime *string `json:"createdTime"`
 }

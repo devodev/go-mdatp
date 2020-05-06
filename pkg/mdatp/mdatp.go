@@ -153,10 +153,8 @@ func (c *Client) do(ctx context.Context, req *http.Request, out interface{}) (*R
 	}
 	defer resp.Body.Close()
 
-	response := &Response{resp}
-	err = CheckResponse(resp)
-
-	if err != nil && out != nil {
+	response, err := validateResponse(resp)
+	if err == nil && out != nil {
 		if decErr := json.NewDecoder(resp.Body).Decode(&out); decErr != io.EOF {
 			err = decErr
 		}
@@ -164,58 +162,38 @@ func (c *Client) do(ctx context.Context, req *http.Request, out interface{}) (*R
 	return response, err
 }
 
-// CheckResponse validates the response returned from
-// an API call and returns an error, if any.
-func CheckResponse(r *http.Response) error {
+// validateResponse validates the response returned from
+// an API call.
+func validateResponse(r *http.Response) (*Response, error) {
+	resp := &Response{HTTPResponse: r}
 	if c := r.StatusCode; 200 <= c && c <= 299 {
-		return nil
+		return resp, nil
 	}
-	errorResponse := &ErrorResponse{Response: r}
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return err
+		return resp, err
 	}
-	if err := json.Unmarshal(data, &errorResponse.Err); err != nil {
-		return err
+	if err := json.Unmarshal(data, &resp.APIError); err != nil {
+		return resp, err
 	}
-	return errorResponse
+	return resp, nil
 }
 
 // Response encapsulates the http response received from
 // a successful API call.
 type Response struct {
-	Response *http.Response
-}
-
-// ErrorResponse encapsulates the http response as well as the
-// error returned in the body of an API call.
-type ErrorResponse struct {
-	Response *http.Response
-	Err      *APIError
-}
-
-func (r *ErrorResponse) Error() string {
-	return fmt.Sprintf("%v %v: %v. API Error: %+v",
-		r.Response.Request.Method, r.Response.Request.URL,
-		r.Response.Status, r.Err)
+	HTTPResponse *http.Response
+	APIError     *APIError
 }
 
 // APIError represents the JSON returned by the API
 // when an error is encountered.
 type APIError struct {
-	Message string
-}
-
-// AuthError represents the JSON object returned by the authentication
-// endpoint when an error is encountered.
-type AuthError struct {
-	Error            string    `json:"error"`
-	ErrorDescription string    `json:"error_description"`
-	ErrorCodes       []int     `json:"error_codes"`
-	Timestamp        time.Time `json:"timestamp"`
-	TraceID          string    `json:"trace_id"`
-	CorrelationID    string    `json:"correlation_id"`
-	ErrorURI         string    `json:"error_uri"`
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Target  string `json:"target"`
+	} `json:"error"`
 }
 
 // Bool is a helper routine that allocates a new bool value

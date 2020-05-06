@@ -2,14 +2,13 @@ package mdatp
 
 import (
 	"fmt"
-	"net/url"
 
 	"golang.org/x/oauth2/clientcredentials"
 )
 
 var (
-	mdatpResourceURL  = "https://graph.windows.net"
-	microsoftTokenURL = "https://login.windows.net/%s/oauth2/token"
+	mdatpScope        = "https://securitycenter.onmicrosoft.com/windowsatpservice/.default"
+	microsoftTokenURL = "https://login.windows.net/%s/oauth2/v2.0/token"
 )
 
 // OAuthConfig .
@@ -18,8 +17,6 @@ func OAuthConfig(clientID, clientSecret, tenantID string) *clientcredentials.Con
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		TokenURL:     fmt.Sprintf(microsoftTokenURL, tenantID),
-		EndpointParams: url.Values{
-			"resource": []string{mdatpResourceURL},
-		},
+		Scopes:       []string{mdatpScope},
 	}
 }

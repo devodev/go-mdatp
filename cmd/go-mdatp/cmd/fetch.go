@@ -100,12 +100,21 @@ func newCommandFetch() *cobra.Command {
 				return err
 			}
 
-			_, alerts, err := client.Alert.Fetch(context.Background(), requestParams)
+			resp, alert, err := client.Alert.Fetch(context.Background(), requestParams)
 			if err != nil {
 				return err
 			}
 
-			for _, a := range alerts {
+			if resp.APIError != nil {
+				marshalled, err := json.Marshal(resp.APIError)
+				if err != nil {
+					return err
+				}
+				writeOut(string(marshalled))
+				return nil
+			}
+
+			for _, a := range alert.Value {
 				marshalled, err := json.Marshal(a)
 				if err != nil {
 					return err

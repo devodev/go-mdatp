@@ -2,32 +2,24 @@ package mdatp
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-// Credentials are used by WithOAuthClient.
-type Credentials struct {
-	ClientID     string
-	ClientSecret string
-	TenantDomain string
-	TenantID     string
-}
+var (
+	mdatpResourceURL  = "https://graph.windows.net"
+	microsoftTokenURL = "https://login.windows.net/%s/oauth2/token"
+)
 
-// OAuthClient returns a HTTP client with a OAuth
-// compatible TokenSource.
-func (c *Credentials) OAuthClient() *http.Client {
-	conf := &clientcredentials.Config{
-		ClientID:     c.ClientID,
-		ClientSecret: c.ClientSecret,
-		TokenURL:     fmt.Sprintf(microsoftTokenURL, c.TenantDomain),
+// OAuthConfig .
+func OAuthConfig(clientID, clientSecret, tenantID string) *clientcredentials.Config {
+	return &clientcredentials.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		TokenURL:     fmt.Sprintf(microsoftTokenURL, tenantID),
 		EndpointParams: url.Values{
-			"resource": []string{defaultBaseURLStr},
+			"resource": []string{mdatpResourceURL},
 		},
 	}
-	httpClient := conf.Client(nil)
-	httpClient.Timeout = defaultTimeout
-	return httpClient
 }

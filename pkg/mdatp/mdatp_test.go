@@ -3,11 +3,9 @@ package mdatp
 import "testing"
 
 func TestClientDefault(t *testing.T) {
-	tenantID := ""
-
-	client := NewClient(tenantID)
-	if client == nil {
-		t.Fatal("something went terribly wrong")
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("error occured creating client: %v", err)
 	}
 
 	if client.httpClient.Timeout != defaultTimeout {
@@ -17,8 +15,9 @@ func TestClientDefault(t *testing.T) {
 		)
 	}
 	baseURL := client.BaseURL.String()
-	if baseURL != defaultBaseURLStr {
-		t.Errorf("baseURL is not default value. got: %v want: %v", baseURL, defaultBaseURLStr)
+	defaultURL := defaultBaseURL.String()
+	if baseURL != defaultURL {
+		t.Errorf("baseURL is not default value. got: %v want: %v", baseURL, defaultURL)
 	}
 	version := client.Version()
 	if version != defaultVersion {

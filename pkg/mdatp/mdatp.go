@@ -13,13 +13,15 @@ import (
 )
 
 var (
-	defaultBaseURLStr = "https://api.securitycenter.windows.com"
-	defaultBaseURL, _ = url.Parse(defaultBaseURLStr)
+	defaultBaseURLMap = map[string]string{
+		"eu": "https://wdatp-alertexporter-eu.windows.com/api/alerts",
+		"us": "https://wdatp-alertexporter-us.windows.com/api/alerts",
+		"uk": "https://wdatp-alertexporter-uk.windows.com/api/alerts",
+	}
+	defaultBaseURL, _ = url.Parse(defaultBaseURLMap["us"])
 	defaultVersion    = "v1.0"
 	defaultUserAgent  = "go-mdatp"
 	defaultTimeout    = 5 * time.Second
-
-	microsoftTokenURL = "https://login.windows.net/%s/oauth2/token?api-version=1.0"
 )
 
 var (
@@ -38,12 +40,12 @@ type service struct {
 // A Client handles communication with the
 // Microsoft Defender ATP API.
 type Client struct {
-	BaseURL   *url.URL
-	UserAgent string
+	BaseURL *url.URL
+
+	userAgent string
 	version   string
 
 	httpClient *http.Client
-	tenantID   string
 
 	// inspired by go-github:
 	// https://github.com/google/go-github/blob/d913de9ce1e8ed5550283b448b37b721b61cc3b3/github/github.go#L159
@@ -65,32 +67,55 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 	}
 }
 
-// WithOAuthClient sets the underlying http client to use.
-func WithOAuthClient(creds *Credentials) ClientOption {
+// WithHTTPTimeout sets the Timeout value on the underlying http client.
+func WithHTTPTimeout(t time.Duration) ClientOption {
 	return func(c *Client) error {
-		if creds == nil {
-			return fmt.Errorf("creds is nil")
-		}
-		c.httpClient = creds.OAuthClient()
+		c.httpClient.Timeout = t
 		return nil
 	}
 }
 
-// NewClient creates a Client using the provided httpClient.
-// If nil is provided, a default httpClient with a default timeout value is created.
-// Note that the default client has no way of authenticating itself against
-// the Microsoft Defender ATP API.
-// A convenience function is provided just for that: NewClientAuthenticated.
-func NewClient(tenantID string, opts ...ClientOption) *Client {
+// WithOAuthClient creates a oauth credentials config from
+// provided oauth attributes and uses it to create an authenticated HTTP client
+// that will be applied as the underlying http client.
+func WithOAuthClient(clientID, clientSecret, tenantID string) ClientOption {
+	return func(c *Client) error {
+		conf := OAuthConfig(clientID, clientSecret, tenantID)
+		httpClient := conf.Client(nil)
+		httpClient.Timeout = defaultTimeout
+		c.httpClient = httpClient
+		return nil
+	}
+}
+
+// WithURLRegion sets the baseURL using the provided region.
+func WithURLRegion(region string) ClientOption {
+	return func(c *Client) error {
+		u, ok := defaultBaseURLMap[region]
+		if !ok {
+			return fmt.Errorf("invalid region")
+		}
+		c.BaseURL, _ = url.Parse(u)
+		return nil
+	}
+}
+
+// NewClient creates a Client that hosts services
+// to interact with the Microsoft Defender ATP SIEM API.
+func NewClient(opts ...ClientOption) (*Client, error) {
 	c := &Client{
 		BaseURL:    defaultBaseURL,
-		UserAgent:  defaultUserAgent,
+		userAgent:  defaultUserAgent,
 		version:    defaultVersion,
 		httpClient: &http.Client{Timeout: defaultTimeout},
-		tenantID:   tenantID,
+	}
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
 	}
 	c.common.client = c
-	return c
+	return c, nil
 }
 
 // Version returns the client version.
@@ -107,7 +132,7 @@ func (c *Client) newRequest(method, path string, params url.Values, payload io.R
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("User-Agent", c.userAgent)
 	return req, nil
 }
 

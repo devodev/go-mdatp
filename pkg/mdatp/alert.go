@@ -85,10 +85,7 @@ func (s *AlertService) Fetch(ctx context.Context, p *AlertRequestParams) (*Respo
 	}
 	var alerts []Alert
 	resp, err := s.client.do(ctx, req, &alerts)
-	if err != nil {
-		return nil, nil, err
-	}
-	return resp, alerts, nil
+	return resp, alerts, err
 }
 
 // Alert represents a Microsoft Defender ATP Alert type.

@@ -77,7 +77,7 @@ func newCommandFetch() *cobra.Command {
 	var cmdConfig fetchConfig
 	cmd := &cobra.Command{
 		Use:   "fetch",
-		Short: "Fetch alerts from the Microsoft Defender ATP SIEM API.",
+		Short: "Fetch alerts from the Microsoft Defender ATP REST API.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := initConfig(cmdConfig.ConfigFile)
@@ -99,10 +99,12 @@ func newCommandFetch() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			_, alerts, err := client.Alert.Fetch(context.Background(), requestParams)
 			if err != nil {
 				return err
 			}
+
 			for _, a := range alerts {
 				marshalled, err := json.Marshal(a)
 				if err != nil {

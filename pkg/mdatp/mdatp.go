@@ -13,12 +13,8 @@ import (
 )
 
 var (
-	defaultBaseURLMap = map[string]string{
-		"eu": "https://wdatp-alertexporter-eu.windows.com/api/alerts",
-		"us": "https://wdatp-alertexporter-us.windows.com/api/alerts",
-		"uk": "https://wdatp-alertexporter-uk.windows.com/api/alerts",
-	}
-	defaultBaseURL, _ = url.Parse(defaultBaseURLMap["us"])
+	defaultBaseURLStr = "https://api.securitycenter.windows.com"
+	defaultBaseURL, _ = url.Parse(defaultBaseURLStr)
 	defaultVersion    = "v1.0"
 	defaultUserAgent  = "go-mdatp"
 	defaultTimeout    = 5 * time.Second
@@ -86,18 +82,6 @@ func WithOAuthClient(clientID, clientSecret, tenantID string) ClientOption {
 		httpClient := conf.Client(context.Background())
 		httpClient.Timeout = defaultTimeout
 		c.httpClient = httpClient
-		return nil
-	}
-}
-
-// WithURLRegion sets the baseURL using the provided region.
-func WithURLRegion(region string) ClientOption {
-	return func(c *Client) error {
-		u, ok := defaultBaseURLMap[region]
-		if !ok {
-			return fmt.Errorf("invalid region")
-		}
-		c.BaseURL, _ = url.Parse(u)
 		return nil
 	}
 }
@@ -170,15 +154,12 @@ func (c *Client) do(ctx context.Context, req *http.Request, out interface{}) (*R
 	defer resp.Body.Close()
 
 	response := &Response{resp}
-
 	err = CheckResponse(resp)
 
-	if out != nil {
-		decErr := json.NewDecoder(resp.Body).Decode(&out)
-		if decErr == io.EOF {
-			decErr = nil
+	if err != nil && out != nil {
+		if decErr := json.NewDecoder(resp.Body).Decode(&out); decErr != io.EOF {
+			err = decErr
 		}
-		err = decErr
 	}
 	return response, err
 }
@@ -191,8 +172,11 @@ func CheckResponse(r *http.Response) error {
 	}
 	errorResponse := &ErrorResponse{Response: r}
 	data, err := ioutil.ReadAll(r.Body)
-	if err == nil && data != nil {
-		json.Unmarshal(data, &errorResponse.Err)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &errorResponse.Err); err != nil {
+		return err
 	}
 	return errorResponse
 }
@@ -207,22 +191,31 @@ type Response struct {
 // error returned in the body of an API call.
 type ErrorResponse struct {
 	Response *http.Response
-	Err      *Error
+	Err      *APIError
 }
 
 func (r *ErrorResponse) Error() string {
-	return fmt.Sprintf("%v %v: %d %v. API Error: %+v",
+	return fmt.Sprintf("%v %v: %v. API Error: %+v",
 		r.Response.Request.Method, r.Response.Request.URL,
-		r.Response.StatusCode, r.Response.Status, r.Err)
+		r.Response.Status, r.Err)
 }
 
-// Error represents the json object returned in the body
-// of the response when an error is encountered.
-type Error struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
+// APIError represents the JSON returned by the API
+// when an error is encountered.
+type APIError struct {
+	Message string
+}
+
+// AuthError represents the JSON object returned by the authentication
+// endpoint when an error is encountered.
+type AuthError struct {
+	Error            string    `json:"error"`
+	ErrorDescription string    `json:"error_description"`
+	ErrorCodes       []int     `json:"error_codes"`
+	Timestamp        time.Time `json:"timestamp"`
+	TraceID          string    `json:"trace_id"`
+	CorrelationID    string    `json:"correlation_id"`
+	ErrorURI         string    `json:"error_uri"`
 }
 
 // Bool is a helper routine that allocates a new bool value

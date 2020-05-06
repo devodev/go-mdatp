@@ -35,7 +35,7 @@ func writeOut(s string) {
 func newCommandRoot() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "go-mdatp",
-		Short:   "Interact with the Microsoft Defender ATP API.",
+		Short:   "Interact with the Microsoft Defender ATP REST API.",
 		Version: "0.1.0",
 	}
 	cmd.AddCommand(

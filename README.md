@@ -1,7 +1,7 @@
-A CLI as well as a library to interact with the Microsoft Defender ATP API.
+A CLI as well as a library to interact with the Microsoft Defender ATP SIEM API.
 
 ## Overview
-`go-mdatp` provides a client library for the `Microsoft Defender ATP API` written in [Go](https://golang.org/). It follows the Microsoft API Reference available [here](https://docs.microsoft.com/en-us/windows/security/threat-protection/microsoft-defender-atp/exposed-apis-list).
+`go-mdatp` provides a client library for the `Microsoft Defender ATP SIEM API` written in [Go](https://golang.org/). It follows the Microsoft API Reference available [here](https://docs.microsoft.com/en-us/windows/security/threat-protection/microsoft-defender-atp/pull-alerts-using-rest-api).
 
 `go-mdatp` is also a CLI application with everything you need to interact with the API on the command line.
 

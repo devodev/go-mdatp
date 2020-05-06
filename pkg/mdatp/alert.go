@@ -2,12 +2,6 @@ package mdatp
 
 import (
 	"context"
-	"fmt"
-	"net/url"
-	"strconv"
-	"time"
-
-	duration "github.com/ChannelMeter/iso8601duration"
 )
 
 var (
@@ -18,68 +12,9 @@ var (
 // AlertService .
 type AlertService service
 
-// AlertRequestParams represents available query params
-// to be passed to Fetch.
-type AlertRequestParams struct {
-	SinceTimeUTC             time.Time
-	UntilTimeUTC             time.Time
-	Ago                      string
-	Limit                    int
-	Machinegroups            []string
-	DeviceCreatedMachineTags string
-	CloudCreatedMachineTags  []string
-}
-
-// Values validates attribute values and returns a Values map.
-func (p *AlertRequestParams) Values() (url.Values, error) {
-	if p == nil {
-		return nil, fmt.Errorf("AlertRequestParams is nil")
-	}
-	if p.Ago != "" {
-		if !p.SinceTimeUTC.IsZero() || !p.UntilTimeUTC.IsZero() {
-			return nil, fmt.Errorf("Ago and SinceTimeUTC or UntilTimeUTC are provided but Ago and *TimeUTC are mutually exclusives")
-		}
-		if _, err := duration.FromString(p.Ago); err != nil {
-			return nil, err
-		}
-	}
-
-	values := make(url.Values)
-	if !p.SinceTimeUTC.IsZero() {
-		values.Add("sinceTimeUtc", p.SinceTimeUTC.Format(datetimeFormat))
-	}
-	if !p.UntilTimeUTC.IsZero() {
-		values.Add("untilTimeUtc", p.UntilTimeUTC.Format(datetimeFormat))
-	}
-	if p.Ago != "" {
-		values.Add("ago", p.Ago)
-	}
-	if p.Limit != 0 {
-		values.Add("limit", strconv.Itoa(p.Limit))
-	}
-	if len(p.Machinegroups) > 0 {
-		for _, group := range p.Machinegroups {
-			values.Add("machinegroups", group)
-		}
-	}
-	if p.DeviceCreatedMachineTags != "" {
-		values.Add("DeviceCreatedMachineTags", p.DeviceCreatedMachineTags)
-	}
-	if len(p.CloudCreatedMachineTags) > 0 {
-		for _, tag := range p.CloudCreatedMachineTags {
-			values.Add("CloudCreatedMachineTags", tag)
-		}
-	}
-	return values, nil
-}
-
 // Fetch retrieves alerts using conditions.
-func (s *AlertService) Fetch(ctx context.Context, p *AlertRequestParams) (*Response, *AlertResponse, error) {
-	values, err := p.Values()
-	if err != nil {
-		return nil, nil, err
-	}
-	req, err := s.client.newRequest("GET", fetchEndpoint, values, nil)
+func (s *AlertService) Fetch(ctx context.Context) (*Response, *AlertResponse, error) {
+	req, err := s.client.newRequest("GET", fetchEndpoint, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}

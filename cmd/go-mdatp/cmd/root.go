@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"go-mdatp/pkg/mdatp"
 	"os"
 	"time"
 
@@ -78,7 +77,11 @@ type Config struct {
 	Global struct {
 		Identifier string
 	}
-	Credentials mdatp.Credentials
+	Credentials struct {
+		ClientID     string
+		ClientSecret string
+		TenantID     string
+	}
 }
 
 func parseDate(param string) time.Time {

@@ -83,7 +83,7 @@ func WithHTTPTimeout(t time.Duration) ClientOption {
 func WithOAuthClient(clientID, clientSecret, tenantID string) ClientOption {
 	return func(c *Client) error {
 		conf := OAuthConfig(clientID, clientSecret, tenantID)
-		httpClient := conf.Client(nil)
+		httpClient := conf.Client(context.Background())
 		httpClient.Timeout = defaultTimeout
 		c.httpClient = httpClient
 		return nil

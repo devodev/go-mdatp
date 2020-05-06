@@ -13,7 +13,11 @@ var (
 	loggerOutput  = os.Stderr
 	defaultOutput = os.Stdout
 
-	timeFormats = []string{}
+	timeFormats = []string{
+		"2006-01-02",
+		"2006-01-02T15:04",
+		"2006-01-02T15:04:05",
+	}
 )
 
 // Execute executes the root command.
@@ -22,6 +26,10 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(defaultOutput, err)
 	}
+}
+
+func writeOut(s string) {
+	fmt.Fprintln(defaultOutput, s)
 }
 
 func newCommandRoot() *cobra.Command {
@@ -84,12 +92,12 @@ type Config struct {
 	}
 }
 
-func parseDate(param string) time.Time {
+func parseDate(param string) (time.Time, error) {
 	for _, format := range timeFormats {
 		parsed, err := time.Parse(format, param)
 		if err == nil {
-			return parsed
+			return parsed, nil
 		}
 	}
-	return time.Time{}
+	return time.Time{}, fmt.Errorf("bad datetime format")
 }

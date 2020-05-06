@@ -5,11 +5,6 @@ import (
 	"net/url"
 )
 
-var (
-	fetchEndpoint  = "alerts"
-	datetimeFormat = "2006-01-02T15:04:05.999"
-)
-
 // AlertService .
 type AlertService service
 
@@ -19,7 +14,7 @@ func (s *AlertService) List(ctx context.Context, odataQueryFilter string) (*Resp
 	if odataQueryFilter != "" {
 		queryParams.Set("$filter", odataQueryFilter)
 	}
-	req, err := s.client.newRequest("GET", fetchEndpoint, queryParams, nil)
+	req, err := s.client.newRequest("GET", "alerts", queryParams, nil)
 	if err != nil {
 		return nil, nil, err
 	}

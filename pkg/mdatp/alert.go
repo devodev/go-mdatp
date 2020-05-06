@@ -2,6 +2,7 @@ package mdatp
 
 import (
 	"context"
+	"net/url"
 )
 
 var (
@@ -13,8 +14,12 @@ var (
 type AlertService service
 
 // List retrieves alerts using conditions.
-func (s *AlertService) List(ctx context.Context) (*Response, *AlertListResponse, error) {
-	req, err := s.client.newRequest("GET", fetchEndpoint, nil, nil)
+func (s *AlertService) List(ctx context.Context, odataQueryFilter string) (*Response, *AlertListResponse, error) {
+	queryParams := url.Values{}
+	if odataQueryFilter != "" {
+		queryParams.Set("$filter", odataQueryFilter)
+	}
+	req, err := s.client.newRequest("GET", fetchEndpoint, queryParams, nil)
 	if err != nil {
 		return nil, nil, err
 	}

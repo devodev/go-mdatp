@@ -17,7 +17,6 @@ type configAlert struct {
 	ConfigFile string
 }
 
-// setupCmd sets flags on the provided cmd and resolve env variables using the provided Config.
 func setupCmdAlert(cmd *cobra.Command, c *configAlert) *cobra.Command {
 	envconfig.Process("", c)
 	cmd.PersistentFlags().SortFlags = false
@@ -36,7 +35,19 @@ func newCommandAlert() *cobra.Command {
 	return setupCmdAlert(cmd, &config)
 }
 
+type configAlertList struct {
+	ODataQueryFilter string
+}
+
+func setupCmdAlertList(cmd *cobra.Command, c *configAlertList) *cobra.Command {
+	envconfig.Process("", c)
+	cmd.Flags().SortFlags = false
+	cmd.Flags().StringVarP(&c.ODataQueryFilter, "query-filter", "f", c.ODataQueryFilter, "$filter OData V4 query option string.")
+	return cmd
+}
+
 func newCommandAlertList() *cobra.Command {
+	var cmdConfig configAlertList
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts.",
@@ -58,7 +69,7 @@ func newCommandAlertList() *cobra.Command {
 				return err
 			}
 
-			resp, alert, err := client.Alert.List(context.Background())
+			resp, alert, err := client.Alert.List(context.Background(), cmdConfig.ODataQueryFilter)
 			if err != nil {
 				return err
 			}
@@ -82,5 +93,5 @@ func newCommandAlertList() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return setupCmdAlertList(cmd, &cmdConfig)
 }

@@ -14,7 +14,7 @@ type genDocConfig struct {
 }
 
 // setupCmd sets flags on the provided cmd and resolve env variables using the provided Config.
-func setupCmd(cmd *cobra.Command, c *genDocConfig) *cobra.Command {
+func genDocSetupCmd(cmd *cobra.Command, c *genDocConfig) *cobra.Command {
 	envconfig.Process("", c)
 	cmd.Flags().SortFlags = false
 	cmd.Flags().StringVar(&c.OutDir, "dir", c.OutDir, "directory where to write the doc.")
@@ -42,5 +42,5 @@ func newCommandGenDoc() *cobra.Command {
 			return nil
 		},
 	}
-	return setupCmd(cmd, &config)
+	return genDocSetupCmd(cmd, &config)
 }

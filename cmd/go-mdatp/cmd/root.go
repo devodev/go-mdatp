@@ -33,6 +33,7 @@ func newCommandRoot() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newCommandGenDoc(),
+		newCommandFetch(),
 	)
 	return cmd
 }

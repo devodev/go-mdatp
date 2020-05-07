@@ -151,7 +151,7 @@ func initLogger(cmd *cobra.Command, logFile string, setDebug, setJSON bool) (*lo
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	}
 
-	logger.SetOutput(loggerOutput)
+	logger.SetOutput(defaultLoggerOutput)
 	if logFile != "" {
 		logFile, err := filepath.Abs(logFile)
 		if err != nil {

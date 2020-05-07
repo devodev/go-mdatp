@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	loggerOutput  = os.Stderr
-	defaultOutput = os.Stdout
+	defaultLoggerOutput = os.Stderr
+	defaultOutput       = os.Stdout
 
 	timeFormats = []string{
 		"2006-01-02",

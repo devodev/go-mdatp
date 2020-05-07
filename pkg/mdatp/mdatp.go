@@ -17,7 +17,7 @@ var (
 	defaultBaseURL, _ = url.Parse(defaultBaseURLStr)
 	defaultVersion    = "v1.0"
 	defaultUserAgent  = "go-mdatp"
-	defaultTimeout    = 5 * time.Second
+	defaultTimeout    = 30 * time.Second
 )
 
 var (

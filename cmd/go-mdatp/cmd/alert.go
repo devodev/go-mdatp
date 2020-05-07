@@ -31,6 +31,7 @@ func newCommandAlert() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newCommandAlertList(),
+		newCommandWatch(),
 	)
 	return setupCmdAlert(cmd, &config)
 }

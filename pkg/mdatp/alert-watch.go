@@ -158,7 +158,7 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 				s.client.logger.Errorf("api error: %+v", resp.APIError)
 				return
 			}
-			s.client.logger.Debug("query succesfull. Retrieved %d alerts.", len(alert.Value))
+			s.client.logger.Debugf("query succesfull. Retrieved %d alerts.", len(alert.Value))
 			for _, a := range alert.Value {
 				select {
 				case alertCh <- a:
@@ -195,7 +195,7 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 			case now := <-ticker.C:
 				s.client.logger.Debug("triggered")
 				if !atomic.CompareAndSwapUint64(&lock, 0, 1) {
-					s.client.logger.Info("busy..")
+					s.client.logger.Debug("busy..")
 					continue
 				}
 				go queryFunc(cancelCtx, lock, now)

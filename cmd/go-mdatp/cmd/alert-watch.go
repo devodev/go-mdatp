@@ -96,12 +96,16 @@ func newCommandWatch() *cobra.Command {
 			}
 
 			var hasStateSource bool
-			var stateRwc io.ReadWriteCloser
+			var stateSourceMaker mdatp.ReadWriteCloserMaker
 			if cmdCfg.StateFile != "" {
-				if stateRwc, err = os.OpenFile(cmdCfg.StateFile, os.O_RDWR|os.O_CREATE, 0640); err != nil {
-					return err
-				}
 				hasStateSource = true
+				stateSourceMaker = func() (io.ReadWriteCloser, error) {
+					f, err := os.OpenFile(cmdCfg.StateFile, os.O_RDWR|os.O_CREATE, 0640)
+					if err != nil {
+						return nil, err
+					}
+					return f, nil
+				}
 			}
 
 			client, err := mdatp.NewClient(
@@ -119,9 +123,9 @@ func newCommandWatch() *cobra.Command {
 			req := &mdatp.AlertWatchRequest{
 				OutputSource:     rwc,
 				IsOutputIndent:   cmdCfg.Indent,
-				HasStateSource:   hasStateSource,
-				StateSource:      stateRwc,
 				State:            mdatp.NewWatchStateJSON(),
+				StateSourceMaker: stateSourceMaker,
+				HasStateSource:   hasStateSource,
 				QueryInterval:    cmdCfg.QueryTickerInterval,
 				QueryMaxInterval: cmdCfg.QueryMaxInterval,
 			}

@@ -6,17 +6,20 @@ import (
 	"time"
 )
 
+// ReadWriteCloserMaker is used to save/load state.
+type ReadWriteCloserMaker func() (io.ReadWriteCloser, error)
+
 // WatchState .
 type WatchState interface {
 	SetLastFetchTime(time.Time) error
 	GetLastFetchTime() (time.Time, error)
-	Save(io.ReadWriteCloser) error
-	Load(io.ReadWriteCloser) error
+	Save(ReadWriteCloserMaker) error
+	Load(ReadWriteCloserMaker) error
 }
 
 // WatchStateJSON .
 type WatchStateJSON struct {
-	lastFetchTime time.Time
+	LastFetchTime time.Time `json:"lastFetchTime"`
 }
 
 // NewWatchStateJSON returns a WatchState using the provided
@@ -27,21 +30,31 @@ func NewWatchStateJSON() *WatchStateJSON {
 
 // SetLastFetchTime implements the WatchState interface.
 func (s *WatchStateJSON) SetLastFetchTime(t time.Time) error {
-	s.lastFetchTime = t
+	s.LastFetchTime = t
 	return nil
 }
 
 // GetLastFetchTime implements the WatchState interface.
 func (s *WatchStateJSON) GetLastFetchTime() (time.Time, error) {
-	return s.lastFetchTime, nil
+	return s.LastFetchTime, nil
 }
 
 // Save implements the WatchState interface.
-func (s *WatchStateJSON) Save(rwc io.ReadWriteCloser) error {
+func (s *WatchStateJSON) Save(rwcMaker ReadWriteCloserMaker) error {
+	rwc, err := rwcMaker()
+	if err != nil {
+		return err
+	}
+	defer rwc.Close()
 	return json.NewEncoder(rwc).Encode(s)
 }
 
 // Load implements the WatchState interface.
-func (s *WatchStateJSON) Load(rwc io.ReadWriteCloser) error {
+func (s *WatchStateJSON) Load(rwcMaker ReadWriteCloserMaker) error {
+	rwc, err := rwcMaker()
+	if err != nil {
+		return err
+	}
+	defer rwc.Close()
 	return json.NewDecoder(rwc).Decode(s)
 }

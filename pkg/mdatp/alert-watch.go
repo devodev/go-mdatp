@@ -53,9 +53,9 @@ type AlertWatchRequest struct {
 	OutputSource   io.ReadWriteCloser
 	IsOutputIndent bool
 
-	State          WatchState
-	StateSource    io.ReadWriteCloser
-	HasStateSource bool
+	State            WatchState
+	StateSourceMaker ReadWriteCloserMaker
+	HasStateSource   bool
 
 	QueryInterval    int
 	QueryMaxInterval int
@@ -95,9 +95,9 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 
 	if req.HasStateSource {
 		s.client.logger.Info("using state source")
-		defer req.State.Save(req.StateSource)
+		defer req.State.Save(req.StateSourceMaker)
 
-		if err := req.State.Load(req.StateSource); err != nil {
+		if err := req.State.Load(req.StateSourceMaker); err != nil {
 			if err != io.EOF {
 				s.client.logger.Warnf("could not load state: %v", err)
 			} else {

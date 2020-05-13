@@ -82,9 +82,6 @@ func initConfig(cfgFile string) (*Config, error) {
 // Config stores credentials and application
 // specific attributes.
 type Config struct {
-	Global struct {
-		Identifier string
-	}
 	Credentials struct {
 		ClientID     string
 		ClientSecret string

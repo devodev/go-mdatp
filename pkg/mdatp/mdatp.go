@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -41,6 +43,7 @@ type Client struct {
 	userAgent string
 	version   string
 
+	logger     *logrus.Logger
 	httpClient *http.Client
 
 	// inspired by go-github:
@@ -65,14 +68,6 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 	}
 }
 
-// WithHTTPTimeout sets the Timeout value on the underlying http client.
-func WithHTTPTimeout(t time.Duration) ClientOption {
-	return func(c *Client) error {
-		c.httpClient.Timeout = t
-		return nil
-	}
-}
-
 // WithOAuthClient creates a oauth credentials config from
 // provided oauth attributes and uses it to create an authenticated HTTP client
 // that will be applied as the underlying http client.
@@ -86,6 +81,22 @@ func WithOAuthClient(clientID, clientSecret, tenantID string) ClientOption {
 	}
 }
 
+// WithHTTPTimeout sets the Timeout value on the underlying http client.
+func WithHTTPTimeout(t time.Duration) ClientOption {
+	return func(c *Client) error {
+		c.httpClient.Timeout = t
+		return nil
+	}
+}
+
+// WithLogger sets the logger used by the client.
+func WithLogger(l *logrus.Logger) ClientOption {
+	return func(c *Client) error {
+		c.logger = l
+		return nil
+	}
+}
+
 // NewClient creates a Client that hosts services
 // to interact with the Microsoft Defender ATP SIEM API.
 func NewClient(opts ...ClientOption) (*Client, error) {
@@ -93,6 +104,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		BaseURL:    defaultBaseURL,
 		userAgent:  defaultUserAgent,
 		version:    defaultVersion,
+		logger:     logrus.New(),
 		httpClient: &http.Client{Timeout: defaultTimeout},
 	}
 	for _, opt := range opts {

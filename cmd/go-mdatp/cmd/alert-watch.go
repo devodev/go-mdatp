@@ -33,6 +33,11 @@ type configAlertWatch struct {
 
 	Debug       bool
 	JSONLogging bool
+
+	// QueryTickerInterval is the duration, in seconds, used to set the query ticker.
+	QueryTickerInterval int
+	// QueryMaxInterval is the duration, in minutes, used to set the maxmimum allowed alertCreationTime interval.
+	QueryMaxInterval int
 }
 
 func setupCmdAlertWatch(cmd *cobra.Command, c *configAlertWatch) *cobra.Command {
@@ -45,6 +50,9 @@ func setupCmdAlertWatch(cmd *cobra.Command, c *configAlertWatch) *cobra.Command 
 
 	cmd.Flags().StringVarP(&c.Output, "output", "o", c.Output, "Set records output. Available schemes: file://path/to/file, udp://1.2.3.4:1234, tcp://1.2.3.4:1234")
 	cmd.Flags().BoolVarP(&c.Indent, "indent", "i", c.Indent, "Set records output to be indented.")
+
+	cmd.Flags().IntVarP(&c.QueryTickerInterval, "ticker-interval", "t", c.QueryTickerInterval, "Sets the ticker interval, in seconds, at which to trigger a query to the API. Default is 5 seconds.")
+	cmd.Flags().IntVarP(&c.QueryMaxInterval, "max-interval", "m", c.QueryMaxInterval, "Sets the maxmimum allowed alertCreationTime interval to use before splitting query.")
 
 	cmd.Flags().BoolVarP(&c.Debug, "debug", "d", c.Debug, "Set log level to DEBUG.")
 	cmd.Flags().BoolVar(&c.JSONLogging, "json", c.JSONLogging, "Set log formatter to JSON.")
@@ -97,6 +105,7 @@ func newCommandWatch() *cobra.Command {
 			}
 
 			client, err := mdatp.NewClient(
+				mdatp.WithLogger(logger),
 				mdatp.WithOAuthClient(
 					config.Credentials.ClientID,
 					config.Credentials.ClientSecret,
@@ -108,12 +117,13 @@ func newCommandWatch() *cobra.Command {
 			}
 
 			req := &mdatp.AlertWatchRequest{
-				OutputSource:   rwc,
-				IsOutputIndent: cmdCfg.Indent,
-				HasStateSource: hasStateSource,
-				StateSource:    stateRwc,
-				Logger:         logger,
-				State:          mdatp.NewWatchStateJSON(),
+				OutputSource:     rwc,
+				IsOutputIndent:   cmdCfg.Indent,
+				HasStateSource:   hasStateSource,
+				StateSource:      stateRwc,
+				State:            mdatp.NewWatchStateJSON(),
+				QueryInterval:    cmdCfg.QueryTickerInterval,
+				QueryMaxInterval: cmdCfg.QueryMaxInterval,
 			}
 			if err := client.Alert.Watch(ctx, req); err != nil {
 				return err

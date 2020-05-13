@@ -9,61 +9,182 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	thirtyDays     = 30 * 24 * time.Hour
-	maxLookBehind  = thirtyDays - 1*time.Second
-	maxInterval    = 24 * time.Hour
-	datetimeFormat = "2006-01-02T15:04:05.99999Z"
+	oneDay     = 24 * time.Hour
+	thirtyDays = 30 * oneDay
 )
 
-// AlertWatchRequest .
+var (
+	// minTickerInterval is a lower bound constraint so that we
+	// do not exceed the Microsoft quota limitation:
+	// 1500 query/hour ~= 0.42 query/second ~= 1 query/2.38 second.
+	minTickerInterval = 3 * time.Second
+	// maxTickerInterval is an upper bound constraint.
+	maxTickerInterval = oneDay
+
+	// minAlertInterval is a lower bound constraint.
+	minAlertInterval = 1 * time.Second
+	// maxAlertInterval is an upper bound constraint.
+	maxAlertInterval = maxTickerInterval
+
+	// maxLookBehind is a hard requirement from microsoft for the alertCreationTime field.
+	maxLookBehind = thirtyDays - 1*time.Second
+)
+
+var (
+	// defaultTickerInterval defines the ticker interval duration
+	// to trigger a query to the API.
+	defaultTickerInterval = minTickerInterval
+	// defaultMaxAlertInterval defines the max interval allowed
+	// for the alertCreationTime field in the OData filter query.
+	defaultMaxAlertInterval = maxAlertInterval
+)
+
+var (
+	// alertChSize defines the channel buffer size
+	// when sending alerts to the encoder goroutine.
+	alertChSize = 1024
+)
+
+// AlertWatchRequest defines attributes required by the Watch method.
 type AlertWatchRequest struct {
 	OutputSource   io.ReadWriteCloser
 	IsOutputIndent bool
 
-	HasStateSource bool
+	State          WatchState
 	StateSource    io.ReadWriteCloser
+	HasStateSource bool
 
-	Logger *logrus.Logger
-	State  WatchState
+	QueryInterval    int
+	QueryMaxInterval int
 }
 
-// Watch retrieves alerts at regular intervals and write
-// the results to the provided io.writer.
+// Watch retrieves alerts at regular intervals and writes
+// the results to the provided OutputSource.
+//
+// Two goroutines are started, one to query and one to encode results.
+// The query goroutine, for each tick, and if not already running,
+// a query to the Alert endpoint is made. Alerts retrieved are sent
+// to an alert channel to be encoded by the encoding goroutine.
+//
+// An error is returned if request attribute validation fails.
 func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error {
-	req.Logger.Info("starting..")
-	defer req.Logger.Info("stopped")
+	tickerInterval := time.Duration(req.QueryInterval) * time.Second
+	if tickerInterval == 0 {
+		tickerInterval = defaultTickerInterval
+	}
+	if tickerInterval < minTickerInterval {
+		return fmt.Errorf("tickerInterval is below the minimum allowed(%v): %v", minTickerInterval.String(), tickerInterval.String())
+	}
+	if tickerInterval > maxTickerInterval {
+		return fmt.Errorf("tickerInterval is above the maxmimum allowed(%v): %v", maxTickerInterval.String(), tickerInterval.String())
+	}
+
+	maxInterval := time.Duration(req.QueryMaxInterval) * time.Minute
+	if maxInterval == 0 {
+		maxInterval = defaultMaxAlertInterval
+	}
+	if maxInterval < minAlertInterval {
+		return fmt.Errorf("maxInterval is below the minimum allowed(%v): %v", minAlertInterval.String(), tickerInterval.String())
+	}
+	if tickerInterval > maxAlertInterval {
+		return fmt.Errorf("maxInterval is above the maxmimum allowed(%v): %v", maxAlertInterval.String(), tickerInterval.String())
+	}
+
 	if req.HasStateSource {
-		req.Logger.Debug("using state source")
+		s.client.logger.Info("using state source")
 		defer req.State.Save(req.StateSource)
+
 		if err := req.State.Load(req.StateSource); err != nil {
-			req.Logger.Warnf("could not load state: %v", err)
+			s.client.logger.Warnf("could not load state: %v", err)
 		}
 	}
 
-	var wg sync.WaitGroup
-
-	alertBufSize := 1024
-	alertCh := make(chan Alert, alertBufSize)
-
-	tickerInterval := 5 * time.Second
-	ticker := time.NewTicker(tickerInterval)
+	encoder := json.NewEncoder(req.OutputSource)
+	if req.IsOutputIndent {
+		encoder.SetIndent("", "\t")
+	}
 
 	encodeDoneCh := make(chan struct{})
+	alertCh := make(chan Alert, alertChSize)
 
-	cancelCtx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+
+	queryFunc := func(ctx context.Context, lock uint64, triggered time.Time) {
+		defer atomic.StoreUint64(&lock, 0)
+
+		var err error
+		var start time.Time
+		end := triggered
+		for {
+			s.client.logger.Debug("retrieving lastFetchTime")
+			start, err = req.State.GetLastFetchTime()
+			if err != nil {
+				s.client.logger.Debugf("could not get lastFetchTime from state: %v", err)
+			}
+			if !start.Before(triggered) {
+				s.client.logger.Debug("we are done looping")
+				return
+			}
+
+			if start.IsZero() {
+				start = end.Add(-maxInterval)
+				s.client.logger.Debug("start is zero")
+			}
+			if start.Before(triggered.Add(-maxLookBehind)) {
+				end = end.Add(-(maxLookBehind))
+				s.client.logger.Debugf("start is older than allowed value(%v): %v", maxLookBehind.String(), start.String())
+			}
+
+			interval := end.Sub(start)
+			if interval > maxInterval {
+				end = start.Add(maxInterval)
+				s.client.logger.Debugf("interval is greater than allowed value(%v): %v", maxInterval.String(), interval.String())
+			}
+
+			oDataIntervalQuery := makeIntervalOdataQuery("alertCreationTime", start, end)
+			s.client.logger.Debugf("ODATA filter query: %v", oDataIntervalQuery)
+
+			resp, alert, err := s.client.Alert.List(ctx, oDataIntervalQuery)
+			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					s.client.logger.Errorf("request error: %v", err)
+				}
+				return
+			}
+			if resp.APIError != nil {
+				s.client.logger.Errorf("api error: %+v", resp.APIError)
+				return
+			}
+			s.client.logger.Debug("query succesfull. Retrieved %d alerts.", len(alert.Value))
+			for _, a := range alert.Value {
+				select {
+				case alertCh <- a:
+				case <-ctx.Done():
+					return
+				}
+			}
+			s.client.logger.Debug("saving lastFetchTime")
+			req.State.SetLastFetchTime(end)
+		}
+	}
 
 	wg.Add(1)
 	go func() {
-		defer cancel()
-		defer close(alertCh)
-		defer wg.Done()
+		ticker := time.NewTicker(tickerInterval)
+		cancelCtx, cancel := context.WithCancel(ctx)
+
+		defer func() {
+			ticker.Stop()
+			cancel()
+			close(alertCh)
+			wg.Done()
+		}()
 
 		var lock uint64
+		go queryFunc(cancelCtx, lock, time.Now())
 
 		for {
 			select {
@@ -72,131 +193,33 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 			case <-ctx.Done():
 				return
 			case now := <-ticker.C:
-				req.Logger.Debug("triggered")
+				s.client.logger.Debug("triggered")
 				if !atomic.CompareAndSwapUint64(&lock, 0, 1) {
-					req.Logger.Info("busy querying..")
+					s.client.logger.Info("busy..")
 					continue
 				}
-
-				go func() {
-					defer atomic.StoreUint64(&lock, 0)
-
-					var err error
-					var start time.Time
-					end := now
-					for {
-						start, err = req.State.GetLastFetchTime()
-						if err != nil {
-							req.Logger.Debugf("could not get lastFetchTime: %v", err)
-						}
-						if !start.Before(now) {
-							req.Logger.Debug("we are done looping")
-							return
-						}
-
-						if start.IsZero() {
-							// ? TODO: firstFetchLookBehind value in config maybe ?
-							start = end.Add(-tickerInterval)
-						}
-						if start.Before(now.Add(-maxLookBehind)) {
-							end = end.Add(-(maxLookBehind))
-							req.Logger.Debugf("start is older than allowed value(%v): %v", maxLookBehind.String(), start.String())
-						}
-						interval := end.Sub(start)
-						if interval > maxInterval {
-							end = start.Add(maxInterval)
-							req.Logger.Debugf("interval is greater than allowed value(%v): %v", maxInterval.String(), interval.String())
-						}
-
-						oDataIntervalQueryStr := "alertCreationTime gt %v and alertCreationTime le %v"
-						oDataIntervalQuery := fmt.Sprintf(oDataIntervalQueryStr, start.UTC().Format(datetimeFormat), end.UTC().Format(datetimeFormat))
-						req.Logger.Debugf("ODATA filter query: %v", oDataIntervalQuery)
-
-						resp, alert, err := s.client.Alert.List(cancelCtx, oDataIntervalQuery)
-						if err != nil {
-							if !errors.Is(err, context.Canceled) {
-								req.Logger.Errorf("request error: %v", err)
-							}
-							return
-						}
-						if resp.APIError != nil {
-							req.Logger.Errorf("api error: %+v", resp.APIError)
-							return
-						}
-						req.Logger.Debug("query succesfull")
-						for _, a := range alert.Value {
-							select {
-							case alertCh <- a:
-							case <-cancelCtx.Done():
-								return
-							}
-						}
-						req.State.SetLastFetchTime(end)
-					}
-				}()
-
+				go queryFunc(cancelCtx, lock, now)
 			}
 		}
 	}()
 
-	enc := json.NewEncoder(req.OutputSource)
-	if req.IsOutputIndent {
-		enc.SetIndent("", "\t")
-	}
-
 	wg.Add(1)
 	go func() {
-		defer close(encodeDoneCh)
-		defer wg.Done()
+		defer func() {
+			close(encodeDoneCh)
+			wg.Done()
+		}()
+
 		for alert := range alertCh {
-			if err := enc.Encode(&alert); err != nil {
-				req.Logger.Error(err)
+			if err := encoder.Encode(&alert); err != nil {
+				s.client.logger.Error(err)
 				return
 			}
 		}
 	}()
 
-	req.Logger.Info("started")
+	s.client.logger.Info("started")
 	wg.Wait()
+	s.client.logger.Info("stopped")
 	return nil
-}
-
-// WatchState .
-type WatchState interface {
-	SetLastFetchTime(time.Time) error
-	GetLastFetchTime() (time.Time, error)
-	Save(io.ReadWriteCloser) error
-	Load(io.ReadWriteCloser) error
-}
-
-// WatchStateJSON .
-type WatchStateJSON struct {
-	lastFetchTime time.Time
-}
-
-// NewWatchStateJSON returns a WatchState using the provided
-// source as persistence mecanism.
-func NewWatchStateJSON() *WatchStateJSON {
-	return &WatchStateJSON{time.Time{}}
-}
-
-// SetLastFetchTime implements the WatchState interface.
-func (s *WatchStateJSON) SetLastFetchTime(t time.Time) error {
-	s.lastFetchTime = t
-	return nil
-}
-
-// GetLastFetchTime implements the WatchState interface.
-func (s *WatchStateJSON) GetLastFetchTime() (time.Time, error) {
-	return s.lastFetchTime, nil
-}
-
-// Save implements the WatchState interface.
-func (s *WatchStateJSON) Save(rwc io.ReadWriteCloser) error {
-	return json.NewEncoder(rwc).Encode(s)
-}
-
-// Load implements the WatchState interface.
-func (s *WatchStateJSON) Load(rwc io.ReadWriteCloser) error {
-	return json.NewDecoder(rwc).Decode(s)
 }

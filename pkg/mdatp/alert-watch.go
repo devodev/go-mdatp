@@ -98,7 +98,11 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 		defer req.State.Save(req.StateSource)
 
 		if err := req.State.Load(req.StateSource); err != nil {
-			s.client.logger.Warnf("could not load state: %v", err)
+			if err != io.EOF {
+				s.client.logger.Warnf("could not load state: %v", err)
+			} else {
+				s.client.logger.Info("state is empty")
+			}
 		}
 	}
 

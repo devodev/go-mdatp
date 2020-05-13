@@ -74,7 +74,7 @@ Commands that need to interact with the API require credentials to be provided u
 The following locations are looked into if the --config flag is not provided:
 
 ```bash
-$CWD/.go-office365.yaml
+$CWD/.go-mdatp.yaml
 ```
 
 The following is the current schema used.

@@ -112,8 +112,8 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 
 	var wg sync.WaitGroup
 
-	queryFunc := func(ctx context.Context, lock uint64, triggered time.Time) {
-		defer atomic.StoreUint64(&lock, 0)
+	queryFunc := func(ctx context.Context, lock *uint64, triggered time.Time) {
+		defer atomic.StoreUint64(lock, 0)
 
 		var err error
 		var start time.Time
@@ -184,7 +184,7 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 		}()
 
 		var lock uint64
-		go queryFunc(cancelCtx, lock, time.Now())
+		go queryFunc(cancelCtx, &lock, time.Now())
 
 		for {
 			select {
@@ -198,7 +198,7 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 					s.client.logger.Debug("busy..")
 					continue
 				}
-				go queryFunc(cancelCtx, lock, now)
+				go queryFunc(cancelCtx, &lock, now)
 			}
 		}
 	}()

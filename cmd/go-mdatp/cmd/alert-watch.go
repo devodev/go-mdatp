@@ -209,10 +209,10 @@ func setupOutput(ctx context.Context, selection string) (io.ReadWriteCloser, err
 		}
 		rwc, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0640)
 	case strings.HasPrefix(selection, udpPrefix):
-		path := strings.TrimPrefix(selection, filePrefix)
+		path := strings.TrimPrefix(selection, udpPrefix)
 		rwc, err = netDial("udp", path)
 	case strings.HasPrefix(selection, tcpPrefix):
-		path := strings.TrimPrefix(selection, filePrefix)
+		path := strings.TrimPrefix(selection, tcpPrefix)
 		rwc, err = netDial("tcp", path)
 	}
 	return rwc, err

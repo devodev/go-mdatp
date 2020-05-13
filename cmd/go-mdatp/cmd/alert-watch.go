@@ -51,7 +51,7 @@ func setupCmdAlertWatch(cmd *cobra.Command, c *configAlertWatch) *cobra.Command 
 	cmd.Flags().StringVarP(&c.Output, "output", "o", c.Output, "Set records output. Available schemes: file://path/to/file, udp://1.2.3.4:1234, tcp://1.2.3.4:1234")
 	cmd.Flags().BoolVarP(&c.Indent, "indent", "i", c.Indent, "Set records output to be indented.")
 
-	cmd.Flags().IntVarP(&c.QueryTickerInterval, "ticker-interval", "t", c.QueryTickerInterval, "Sets the ticker interval, in seconds, at which to trigger a query to the API. Default is 5 seconds.")
+	cmd.Flags().IntVarP(&c.QueryTickerInterval, "ticker-interval", "t", c.QueryTickerInterval, "Sets the ticker interval, in seconds, at which to trigger a query to the API. Default is 3 seconds.")
 	cmd.Flags().IntVarP(&c.QueryMaxInterval, "max-interval", "m", c.QueryMaxInterval, "Sets the maxmimum allowed alertCreationTime interval to use before splitting query.")
 
 	cmd.Flags().BoolVarP(&c.Debug, "debug", "d", c.Debug, "Set log level to DEBUG.")

@@ -17,7 +17,7 @@ go-mdatp alert watch [flags]
   -s, --state string          Set state output to provided file. Default is to not persist state.
   -o, --output string         Set records output. Available schemes: file://path/to/file, udp://1.2.3.4:1234, tcp://1.2.3.4:1234
   -i, --indent                Set records output to be indented.
-  -t, --ticker-interval int   Sets the ticker interval, in seconds, at which to trigger a query to the API. Default is 5 seconds.
+  -t, --ticker-interval int   Sets the ticker interval, in seconds, at which to trigger a query to the API. Default is 3 seconds.
   -m, --max-interval int      Sets the maxmimum allowed alertCreationTime interval to use before splitting query.
   -d, --debug                 Set log level to DEBUG.
       --json                  Set log formatter to JSON.

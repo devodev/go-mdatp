@@ -128,24 +128,32 @@ func (s *AlertService) Watch(ctx context.Context, req *AlertWatchRequest) error 
 			if err != nil {
 				s.client.logger.Debugf("could not get lastFetchTime from state: %v", err)
 			}
-			if !start.Before(triggered) {
-				s.client.logger.Debug("we are done looping")
-				return
-			}
 
+			// first run without state, set start to maxinterval.
 			if start.IsZero() {
 				start = end.Add(-maxInterval)
-				s.client.logger.Debug("start is zero")
-			}
-			if start.Before(triggered.Add(-maxLookBehind)) {
-				end = end.Add(-(maxLookBehind))
-				s.client.logger.Debugf("start is older than allowed value(%v): %v", maxLookBehind.String(), start.String())
 			}
 
 			interval := end.Sub(start)
+			if interval == 0 {
+				break
+			}
+
+			// we have looped, move end forward
+			if end.Before(triggered) {
+				end.Add(maxInterval)
+			}
+			// end has been moved farther than now(), set end to now()
+			if end.After(triggered) {
+				end = triggered
+			}
+			// validate max lookbehind and adjust start
+			if interval > maxLookBehind {
+				start = end.Add(-maxLookBehind)
+			}
+			// validate max interval and adjust end
 			if interval > maxInterval {
 				end = start.Add(maxInterval)
-				s.client.logger.Debugf("interval is greater than allowed value(%v): %v", maxInterval.String(), interval.String())
 			}
 
 			oDataIntervalQuery := makeIntervalOdataQuery("alertCreationTime", start, end)

@@ -82,8 +82,6 @@ The following is the current schema used.
 
 ```yaml
 ---
-Global:
-  Identifier: some-id
 Credentials:
   ClientID: 00000000-0000-0000-0000-000000000000
   ClientSecret: 00000000000000000000000000000000
